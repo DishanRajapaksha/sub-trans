@@ -8,6 +8,19 @@ const log = (...args: unknown[]): void => {
   console.log('[Arte Subtitle Translator]', ...args);
 };
 
+const TRANSLATED_TRACK_LABEL = 'English (translated)';
+
+const findExistingTranslatedTrack = (video: HTMLVideoElement): HTMLTrackElement | null => {
+  const tracks = Array.from(video.querySelectorAll('track'));
+  return (
+    tracks.find((track) => {
+      const srclang = track.srclang?.toLowerCase() ?? '';
+      const label = track.label?.toLowerCase() ?? '';
+      return srclang === 'en' && label === TRANSLATED_TRACK_LABEL.toLowerCase();
+    }) ?? null
+  );
+};
+
 export const waitForVideo = (): Promise<HTMLVideoElement | null> => {
   const existing = document.querySelector('video');
   if (existing instanceof HTMLVideoElement) {
@@ -137,13 +150,18 @@ export const injectTranslatedTrack = (
   const translatedBlob = new Blob([translatedVtt], { type: 'text/vtt' });
   const translatedSrc = createObjectURLFn(translatedBlob);
 
-  const translatedTrack = sourceTrack.cloneNode(true) as HTMLTrackElement;
+  const existingTranslatedTrack = findExistingTranslatedTrack(video);
+  const translatedTrack = (existingTranslatedTrack ?? sourceTrack.cloneNode(true)) as HTMLTrackElement;
   translatedTrack.src = translatedSrc;
   translatedTrack.srclang = 'en';
-  translatedTrack.label = 'English (translated)';
+  translatedTrack.label = TRANSLATED_TRACK_LABEL;
   translatedTrack.default = true;
-  video.append(translatedTrack);
-  log('Injected translated subtitle track.');
+  if (!existingTranslatedTrack) {
+    video.append(translatedTrack);
+    log('Injected translated subtitle track.');
+  } else {
+    log('Updated translated subtitle track.');
+  }
   return translatedTrack;
 };
 
@@ -164,31 +182,55 @@ export const bootstrap = async (deps: BootstrapDependencies = {}): Promise<void>
   const requestTranslationFn = deps.requestTranslationFn ?? requestTranslation;
   const injectTranslatedTrackFn = deps.injectTranslatedTrackFn ?? injectTranslatedTrack;
 
+  const processedVideos = new WeakSet<HTMLVideoElement>();
+
+  const processVideo = async (video: HTMLVideoElement): Promise<void> => {
+    processedVideos.add(video);
+
+    log('Video element detected. Searching for subtitle tracks...');
+    try {
+      const frenchTrack = await waitForFrenchTrackFn(video);
+      if (!frenchTrack) {
+        log('No French subtitle track discovered.');
+        return;
+      }
+
+      log('French subtitle track found.');
+      const translatedVtt = await requestTranslationFn(frenchTrack);
+      if (!translatedVtt) {
+        log('Unable to translate French subtitle track.');
+        return;
+      }
+
+      injectTranslatedTrackFn(video, frenchTrack, translatedVtt);
+    } catch (error) {
+      log('Unhandled translation request error', error);
+    }
+  };
+
+  const processAvailableVideos = (): void => {
+    const videos = Array.from(document.querySelectorAll('video'));
+    videos.forEach((videoElement) => {
+      if (!processedVideos.has(videoElement)) {
+        void processVideo(videoElement);
+      }
+    });
+  };
+
   const video = await waitForVideoFn();
   if (!video) {
     log('No <video> element detected on this page.');
     return;
   }
 
-  log('Video element detected. Searching for subtitle tracks...');
-  const frenchTrack = await waitForFrenchTrackFn(video);
-  if (!frenchTrack) {
-    log('No French subtitle track discovered.');
-    return;
-  }
+  await processVideo(video);
 
-  log('French subtitle track found.');
-  try {
-    const translatedVtt = await requestTranslationFn(frenchTrack);
-    if (!translatedVtt) {
-      log('Unable to translate French subtitle track.');
-      return;
-    }
+  processAvailableVideos();
 
-    injectTranslatedTrackFn(video, frenchTrack, translatedVtt);
-  } catch (error) {
-    log('Unhandled translation request error', error);
-  }
+  const observer = new MutationObserver(() => {
+    processAvailableVideos();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 };
 
 type VitestImportMeta = ImportMeta & { vitest?: boolean };

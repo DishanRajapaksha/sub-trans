@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import * as contentModule from './index';
-import { sendRuntimeMessage } from '../shared/browser';
+import * as contentModule from '../src/content/index';
+import { sendRuntimeMessage } from '../src/shared/browser';
 
-vi.mock('../shared/browser', () => {
+vi.mock('../src/shared/browser', () => {
   return {
     sendRuntimeMessage: vi.fn()
   };
@@ -250,6 +250,24 @@ describe('content script bootstrap utilities', () => {
       );
     });
 
+    it('falls back to an unknown response message when translation responses omit details', async () => {
+      const consoleSpy = getConsoleSpy();
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.src = arteSubtitleUrl;
+
+      sendRuntimeMessageMock.mockResolvedValue({ status: 'error' });
+
+      await expect(contentModule.requestTranslation(track)).resolves.toBeNull();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[Arte Subtitle Translator]',
+        'Translation request returned an error',
+        'Unknown response'
+      );
+    });
+
     it('logs failures when runtime messaging rejects', async () => {
       const consoleSpy = getConsoleSpy();
       const track = document.createElement('track');
@@ -288,6 +306,103 @@ describe('content script bootstrap utilities', () => {
       expect(translatedTrack.default).toBe(true);
       expect(translatedTrack.src).toBe('blob:translated');
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Injected translated subtitle track.');
+    });
+
+    it('updates an existing translated track rather than duplicating it', () => {
+      const consoleSpy = getConsoleSpy();
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      const translatedTrack = document.createElement('track');
+      translatedTrack.kind = 'subtitles';
+      translatedTrack.label = 'English (translated)';
+      translatedTrack.srclang = 'en';
+      translatedTrack.src = 'data:text/vtt;base64,UFJFVklPVVM=';
+      translatedTrack.id = 'existing-translated-track';
+      video.append(frenchTrack, translatedTrack);
+
+      const createObjectURLFn = vi.fn().mockReturnValue('blob:updated');
+      const result = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT UPDATED', {
+        createObjectURLFn
+      });
+
+      expect(result).toBe(translatedTrack);
+      expect(video.querySelectorAll('track')).toHaveLength(2);
+      expect(translatedTrack.src).toBe('blob:updated');
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Updated translated subtitle track.');
+    });
+
+    it('uses the default URL.createObjectURL implementation when no dependency is provided', () => {
+      const urlWithObjectURL = URL as typeof URL & { createObjectURL: (blob: Blob) => string };
+      const original = urlWithObjectURL.createObjectURL;
+      const fallbackCreateObjectURL = vi.fn().mockReturnValue('blob:default');
+      urlWithObjectURL.createObjectURL = fallbackCreateObjectURL;
+
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      video.append(frenchTrack);
+
+      const translatedTrack = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT DEFAULT');
+
+      expect(fallbackCreateObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      expect(translatedTrack.src).toBe('blob:default');
+
+      if (original) {
+        urlWithObjectURL.createObjectURL = original;
+      } else {
+        delete (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+      }
+    });
+
+    it('ignores placeholder translated tracks that lack srclang or labels', () => {
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      video.append(frenchTrack);
+
+      const placeholderTrack = document.createElement('track');
+      placeholderTrack.kind = 'subtitles';
+      placeholderTrack.label = '';
+      placeholderTrack.srclang = '';
+
+      let srclangValue: string | undefined;
+      Object.defineProperty(placeholderTrack, 'srclang', {
+        configurable: true,
+        get: () => srclangValue as string | undefined,
+        set: (value: string) => {
+          srclangValue = value;
+        }
+      });
+
+      let labelValue: string | undefined;
+      Object.defineProperty(placeholderTrack, 'label', {
+        configurable: true,
+        get: () => labelValue,
+        set: (value: string) => {
+          labelValue = value;
+        }
+      });
+
+      video.append(placeholderTrack);
+
+      const createObjectURLFn = vi.fn().mockReturnValue('blob:fallback');
+
+      const translatedTrack = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT FALLBACK', {
+        createObjectURLFn
+      });
+
+      expect(translatedTrack).not.toBe(placeholderTrack);
+      expect(video.querySelectorAll('track')).toHaveLength(3);
     });
   });
 
@@ -376,6 +491,50 @@ describe('content script bootstrap utilities', () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Unhandled translation request error', expect.any(Error));
+    });
+
+    it('processes newly added video elements exactly once', async () => {
+      const consoleSpy = getConsoleSpy();
+      const firstVideo = document.createElement('video');
+      const firstTrack = document.createElement('track');
+      firstTrack.kind = 'subtitles';
+      firstTrack.srclang = 'fr';
+      firstTrack.src = 'https://example.com/first.vtt';
+      firstVideo.append(firstTrack);
+      document.body.append(firstVideo);
+
+      const secondVideo = document.createElement('video');
+      const secondTrack = document.createElement('track');
+      secondTrack.kind = 'captions';
+      secondTrack.label = 'FR';
+      secondTrack.src = 'https://example.com/second.vtt';
+      secondVideo.append(secondTrack);
+
+      const waitForVideoFn = vi.fn().mockResolvedValue(firstVideo);
+      const waitForFrenchTrackFn = vi.fn((video: HTMLVideoElement) => {
+        return Promise.resolve(video.querySelector('track'));
+      });
+      const requestTranslationFn = vi.fn().mockResolvedValue('WEBVTT');
+      const injectTranslatedTrackFn = vi.fn();
+
+      await contentModule.bootstrap({
+        waitForVideoFn,
+        waitForFrenchTrackFn,
+        requestTranslationFn,
+        injectTranslatedTrackFn
+      });
+
+      expect(waitForVideoFn).toHaveBeenCalledTimes(1);
+      expect(requestTranslationFn).toHaveBeenCalledTimes(1);
+
+      document.body.append(secondVideo);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
+
+      expect(requestTranslationFn).toHaveBeenCalledTimes(2);
+      expect(injectTranslatedTrackFn).toHaveBeenCalledTimes(2);
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Video element detected. Searching for subtitle tracks...');
     });
   });
 
