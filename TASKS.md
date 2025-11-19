@@ -212,7 +212,7 @@ Components:
 
 ### 6.1 Parsing VTT
 
-- [ ] Implement a function that:
+- [x] Implement a function that:
   - Accepts a WebVTT string.
   - Ignores the `WEBVTT` header and any leading metadata lines.
   - Iterates over cue blocks:
@@ -226,13 +226,13 @@ Components:
     - `settings` (optional)
     - `text` (text lines joined by newline characters).
 
-- [ ] Be tolerant of:
+- [x] Be tolerant of:
   - Extra blank lines.
   - Slightly malformed sections (skip gracefully rather than crashing).
 
 ### 6.2 Building VTT
 
-- [ ] Implement a function that:
+- [x] Implement a function that:
   - Accepts an array of cue objects.
   - Produces a valid WebVTT string:
     - Header line `WEBVTT`.
@@ -245,7 +245,7 @@ Components:
 
 ### 6.3 Testing and robustness
 
-- [ ] Add simple unit-style checks (even ad hoc) to verify:
+- [x] Add simple unit-style checks (even ad hoc) to verify:
   - Round-trip parsing and building of a known VTT sample yields the same content (ignoring harmless whitespace differences).
   - Multi-line texts and basic inline tags survive round-trip.
 
