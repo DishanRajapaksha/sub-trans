@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Arte Subtitle Translator",
+  "version": "0.0.1",
+  "description": "Detects Arte.tv subtitles and prepares them for translation.",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.arte.tv/*",
+    "https://arte-cmafhls.akamaized.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.arte.tv/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}
