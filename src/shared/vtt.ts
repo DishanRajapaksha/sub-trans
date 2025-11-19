@@ -6,7 +6,7 @@ export type VttCue = {
   text: string;
 };
 
-const normalizeHeaderlessVtt = (vttText: string): string[] => {
+const normalizeVttLines = (vttText: string): string[] => {
   const normalized = vttText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   return normalized.split('\n');
 };
@@ -38,19 +38,58 @@ const parseTimeLine = (line: string): { start: string; end: string; settings?: s
 };
 
 export const parseVtt = (vttText: string): VttCue[] => {
-  const lines = normalizeHeaderlessVtt(vttText);
+  const lines = normalizeVttLines(vttText);
   const cues: VttCue[] = [];
   let index = 0;
 
-  const skipMetadataLine = (line: string): boolean => {
+  const skipBlankLines = () => {
+    while (index < lines.length && lines[index]?.trim() === '') {
+      index += 1;
+    }
+  };
+
+  const skipMetadataBlockIfNeeded = (line: string): boolean => {
     const trimmed = line.trim();
-    return trimmed === '' || trimmed.startsWith('WEBVTT') || trimmed.startsWith('NOTE') || trimmed.startsWith('STYLE');
+    const upper = trimmed.toUpperCase();
+    if (upper.startsWith('WEBVTT')) {
+      index += 1;
+      return true;
+    }
+
+    const isMetadataBlock = upper.startsWith('NOTE') || upper.startsWith('STYLE') || upper.startsWith('REGION');
+    if (!isMetadataBlock) {
+      return false;
+    }
+
+    index += 1;
+    while (index < lines.length) {
+      const upcomingLine = lines[index];
+      const upcomingTrimmed = upcomingLine?.trim() ?? '';
+      if (upcomingTrimmed === '') {
+        index += 1;
+        continue;
+      }
+
+      const currentHasTimeline = upcomingLine.includes('-->');
+      const nextHasTimeline = lines[index + 1]?.includes('-->');
+      if (currentHasTimeline || nextHasTimeline) {
+        break;
+      }
+
+      index += 1;
+    }
+    skipBlankLines();
+    return true;
   };
 
   while (index < lines.length) {
     const currentLine = lines[index];
-    if (skipMetadataLine(currentLine)) {
+    if (currentLine.trim() === '') {
       index += 1;
+      continue;
+    }
+
+    if (skipMetadataBlockIfNeeded(currentLine)) {
       continue;
     }
 
