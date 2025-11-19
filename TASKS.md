@@ -44,20 +44,20 @@ Components:
 
 ### 2.1 Project structure
 
-- [ ] Create basic project folders, for example:
+- [x] Create basic project folders, for example:
   - `src/` for source files (background, content script, utilities, options logic)
   - `public/` for static assets such as `options.html` and icons
   - `manifest.json`
-- [ ] Use Vite
-- [ ] Configure build so that:
+- [x] Use Vite
+- [x] Configure build so that:
   - Source files are built into `dist/`
   - `manifest.json` and static assets are copied into `dist/`
 
 ### 2.2 Tooling
 
-- [ ] Use TypeScript.
-- [ ] Set up linting and formatting.
-- [ ] Add `npm` scripts:
+- [x] Use TypeScript.
+- [x] Set up linting and formatting.
+- [x] Add `npm` scripts:
   - `build` for a production bundle
   - `dev` or `watch` for rapid local testing (if supported by bundler)
 
@@ -67,31 +67,31 @@ Components:
 
 ### 3.1 Basic fields
 
-- [ ] Set `manifest_version` to `3`.
-- [ ] Define `name`, `version`, and `description`.
-- [ ] Specify a background service worker file under `background.service_worker`.
-- [ ] Declare a content script entry under `content_scripts` that:
+- [x] Set `manifest_version` to `3`.
+- [x] Define `name`, `version`, and `description`.
+- [x] Specify a background service worker file under `background.service_worker`.
+- [x] Declare a content script entry under `content_scripts` that:
   - Matches `https://www.arte.tv/*`
   - Points to the built content script file
   - Uses `run_at: "document_idle"` (or similar)
 
 ### 3.2 Permissions
 
-- [ ] Grant `"permissions"` for:
+- [x] Grant `"permissions"` for:
   - `storage`
   - Any other required generic permission such as `scripting` if needed
-- [ ] Grant `"host_permissions"` for:
+- [x] Grant `"host_permissions"` for:
   - `https://www.arte.tv/*`
-  - Arte subtitle CDN domains, such as `https://arte-cmafhls.akamaized.net/*`  
+  - Arte subtitle CDN domains, such as `https://arte-cmafhls.akamaized.net/*`
     (and any additional variants actually observed)
 
 ### 3.3 Options UI
 
-- [ ] Add an `options_ui` section:
+- [x] Add an `options_ui` section:
   - `page`: path to `options.html`
   - `open_in_tab`: `true`
 
-- [ ] Ensure the manifest is accepted both by Chrome and Firefox MV3 validators.
+- [x] Ensure the manifest is accepted both by Chrome and Firefox MV3 validators.
 
 ---
 
