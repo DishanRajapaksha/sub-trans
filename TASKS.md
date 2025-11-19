@@ -154,11 +154,11 @@ Components:
 
 ### 5.1 Message handling
 
-- [ ] Register a listener for incoming runtime messages.
-- [ ] Filter on the specific translation request type.
-- [ ] Validate input:
+- [x] Register a listener for incoming runtime messages.
+- [x] Filter on the specific translation request type.
+- [x] Validate input:
   - Ensure subtitle URL and language parameters exist.
-- [ ] For valid requests, run the pipeline:
+- [x] For valid requests, run the pipeline:
   1. Fetch the VTT file.
   2. Parse it into cues.
   3. Translate cue texts.
@@ -167,16 +167,16 @@ Components:
 
 ### 5.2 Fetch the `.vtt` file
 
-- [ ] Use `fetch` to retrieve the subtitle file.
-- [ ] Handle:
+- [x] Use `fetch` to retrieve the subtitle file.
+- [x] Handle:
   - HTTP errors (non-2xx status).
   - Network errors.
-- [ ] Read the body as plain text on success.
+- [x] Read the body as plain text on success.
 
 ### 5.3 Parse the VTT
 
-- [ ] Use the VTT utility module to parse the VTT text into an array of cue objects.
-- [ ] Each cue should contain:
+- [x] Use the VTT utility module to parse the VTT text into an array of cue objects.
+- [x] Each cue should contain:
   - Optional identifier
   - Start time string
   - End time string
@@ -185,26 +185,26 @@ Components:
 
 ### 5.4 Translate cue texts
 
-- [ ] Extract `text` from each cue in order.
-- [ ] Pass the array of texts to the translation adapter along with source and target language codes.
-- [ ] Receive back an array of translated strings of the same length.
-- [ ] Replace each cue’s `text` with the translated text in order.
+- [x] Extract `text` from each cue in order.
+- [x] Pass the array of texts to the translation adapter along with source and target language codes.
+- [x] Receive back an array of translated strings of the same length.
+- [x] Replace each cue’s `text` with the translated text in order.
 
 ### 5.5 Rebuild the VTT
 
-- [ ] Use the VTT utility module to turn the translated cues back into a proper `.vtt` file:
+- [x] Use the VTT utility module to turn the translated cues back into a proper `.vtt` file:
   - Include the `WEBVTT` header.
   - Preserve IDs, timings, and settings.
   - Insert a blank line between cue blocks.
-- [ ] Return the VTT string in the background’s response.
+- [x] Return the VTT string in the background’s response.
 
 ### 5.6 Error handling
 
-- [ ] Wrap the full pipeline in error handling.
-- [ ] On failure:
+- [x] Wrap the full pipeline in error handling.
+- [x] On failure:
   - Log a clear, concise message with basic context.
   - Avoid throwing unhandled exceptions; respond with an error object or rejected promise that the content script can detect.
-- [ ] Ensure user experience on Arte remains unaffected when translation fails.
+- [x] Ensure user experience on Arte remains unaffected when translation fails.
 
 ---
 
