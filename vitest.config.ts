@@ -6,7 +6,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/content/index.ts'],
+      include: ['src/content/index.ts', 'src/shared/translation-adapter.ts'],
       thresholds: {
         statements: 100,
         branches: 100,

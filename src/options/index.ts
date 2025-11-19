@@ -1,17 +1,16 @@
 import { extensionBrowser } from '../shared/browser';
+import {
+  DEFAULT_TRANSLATION_SETTINGS,
+  SUPPORTED_TRANSLATION_PROVIDERS,
+  type TranslationSettings
+} from '../shared/translation-settings';
 
-type OptionsFormValues = {
-  provider: string;
-  apiBaseUrl: string;
-  apiKey: string;
-  model: string;
-};
+type OptionsFormValues = TranslationSettings;
 
-const DEFAULT_OPTIONS: OptionsFormValues = {
-  provider: 'mock-provider',
-  apiBaseUrl: '',
-  apiKey: '',
-  model: ''
+const DEFAULT_OPTIONS: OptionsFormValues = { ...DEFAULT_TRANSLATION_SETTINGS };
+
+const isSupportedProvider = (value: string): value is OptionsFormValues['provider'] => {
+  return SUPPORTED_TRANSLATION_PROVIDERS.includes(value as OptionsFormValues['provider']);
 };
 
 const getSyncStorage = async (): Promise<OptionsFormValues> => {
@@ -77,17 +76,17 @@ const readFormValues = (): OptionsFormValues | null => {
   }
 
   const formData = new FormData(formEl);
-  const provider = String(formData.get('provider') ?? '').trim();
+  const providerInput = String(formData.get('provider') ?? '').trim();
   const apiBaseUrl = String(formData.get('apiBaseUrl') ?? '').trim();
   const apiKey = String(formData.get('apiKey') ?? '').trim();
   const model = String(formData.get('model') ?? '').trim();
 
-  if (!provider) {
+  if (!isSupportedProvider(providerInput)) {
     renderStatus('Provider is required', true);
     return null;
   }
 
-  return { provider, apiBaseUrl, apiKey, model };
+  return { provider: providerInput, apiBaseUrl, apiKey, model };
 };
 
 const handleSubmit = async (event: SubmitEvent): Promise<void> => {
