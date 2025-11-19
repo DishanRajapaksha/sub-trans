@@ -71,7 +71,10 @@
     <form id="options-form">
       <label>
         Provider
-        <input type="text" name="provider" placeholder="Provider name" required />
+        <select name="provider" required>
+          <option value="openai">OpenAI</option>
+          <option value="mistral">Mistral</option>
+        </select>
       </label>
       <label>
         API base URL
