@@ -126,24 +126,24 @@ Components:
 
 ### 4.4 Inject the translated track
 
-- [ ] Upon a successful response:
+- [x] Upon a successful response:
   - Create a `Blob` from the returned VTT text, using `text/vtt` as MIME type.
   - Create an object URL from the blob.
-- [ ] Create a new `<track>` element:
+- [x] Create a new `<track>` element:
   - Start from the original French track’s attributes or clone it.
   - Override:
     - `src` with the blob URL
     - `srclang` to `"en"`
     - `label` to something like `"English (translated)"`
     - Optionally set `default` to `true` so the translated track is selected by default.
-- [ ] Append the new track element to the `<video>` element so the Arte player exposes it in the subtitle menu.
-- [ ] Log a debug message indicating success.
+- [x] Append the new track element to the `<video>` element so the Arte player exposes it in the subtitle menu.
+- [x] Log a debug message indicating success.
 
 ### 4.5 Avoid duplicates and handle dynamic changes
 
-- [ ] Ensure the content script does not inject multiple English tracks for the same video:
+- [x] Ensure the content script does not inject multiple English tracks for the same video:
   - Before injecting, check for an existing track with `srclang="en"` and a known label pattern.
-- [ ] If Arte replaces the `<video>` when switching episodes:
+- [x] If Arte replaces the `<video>` when switching episodes:
   - Use the `MutationObserver` to detect new `<video>` elements.
   - Repeat detection and injection for the new player instance.
   - Avoid re-processing old or removed players.
