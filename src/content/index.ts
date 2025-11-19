@@ -156,12 +156,41 @@ export const injectTranslatedTrack = (
   translatedTrack.srclang = 'en';
   translatedTrack.label = TRANSLATED_TRACK_LABEL;
   translatedTrack.default = true;
+
   if (!existingTranslatedTrack) {
     video.append(translatedTrack);
     log('Injected translated subtitle track.');
   } else {
     log('Updated translated subtitle track.');
   }
+
+  // Disable all other subtitle tracks to prevent double subtitles
+  const allTracks = Array.from(video.querySelectorAll('track'));
+  allTracks.forEach((track) => {
+    if (track !== translatedTrack) {
+      track.default = false;
+      // Also disable via textTracks API if available
+      if (video.textTracks) {
+        for (let i = 0; i < video.textTracks.length; i++) {
+          const textTrack = video.textTracks[i];
+          if (textTrack.language !== 'en' || textTrack.label !== TRANSLATED_TRACK_LABEL) {
+            textTrack.mode = 'disabled';
+          }
+        }
+      }
+    }
+  });
+
+  // Enable the translated track
+  if (video.textTracks) {
+    for (let i = 0; i < video.textTracks.length; i++) {
+      const textTrack = video.textTracks[i];
+      if (textTrack.language === 'en' && textTrack.label === TRANSLATED_TRACK_LABEL) {
+        textTrack.mode = 'showing';
+      }
+    }
+  }
+
   return translatedTrack;
 };
 

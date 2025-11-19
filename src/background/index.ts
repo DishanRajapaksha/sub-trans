@@ -72,8 +72,20 @@ export const runTranslationPipeline = async (
       text: replaceTextPreservingTags(cue.text, translatedTexts[index] ?? '')
     }));
 
+    // Log first cue comparison for debugging
+    if (cues.length > 0) {
+      log('=== CUE COMPARISON (first cue) ===');
+      log('Original text:', cues[0].text);
+      log('Plain text extracted:', plainTexts[0]);
+      log('Translated plain text:', translatedTexts[0]);
+      log('Final text with tags:', translatedCues[0].text);
+      log('===================================');
+    }
+
     const translatedVtt = rebuildVttFn(header, translatedCues);
     log('Translation pipeline completed for', request.url);
+    log('Header preview:', header.substring(0, 200));
+    log('Translated VTT preview:', translatedVtt.substring(0, 500));
     return buildSuccessResponse(translatedVtt);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

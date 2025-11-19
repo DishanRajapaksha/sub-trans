@@ -12,6 +12,11 @@ export const extractPlainText = (vttText: string): string => {
  * Preserves all tags and only replaces the text between them
  */
 export const replaceTextPreservingTags = (original: string, translatedPlainText: string): string => {
+    // If there are no tags in the original, just return the translated text
+    if (!original.includes('<')) {
+        return translatedPlainText;
+    }
+
     // Split the original into segments of tags and text
     const segments: Array<{ type: 'tag' | 'text'; content: string }> = [];
     let currentIndex = 0;
@@ -44,49 +49,31 @@ export const replaceTextPreservingTags = (original: string, translatedPlainText:
         });
     }
 
-    // If no tags found, just return the translated text
-    if (segments.length === 0) {
-        return translatedPlainText;
-    }
-
-    // Extract original plain text segments
-    const originalTextSegments = segments
+    // Extract original plain text (without tags)
+    const originalPlainText = segments
         .filter(s => s.type === 'text')
-        .map(s => s.content);
+        .map(s => s.content)
+        .join('');
 
-    // If there's no text, return as is
-    if (originalTextSegments.length === 0) {
+    // If there's no text, return original
+    if (originalPlainText.trim().length === 0) {
         return original;
     }
 
-    // Split translated text proportionally to match original segments
-    // For simplicity, we'll just replace all text with the translated version
-    // while keeping the tag structure
-    const translatedWords = translatedPlainText.split(/\s+/);
-    const originalWords = originalTextSegments.join('').split(/\s+/).filter(w => w.length > 0);
-
-    // If word counts don't match, we need a different strategy
-    // For now, distribute translated words evenly across text segments
-    let wordIndex = 0;
-    const wordsPerSegment = Math.ceil(translatedWords.length / originalTextSegments.length);
-
-    const translatedSegments = originalTextSegments.map((_, i) => {
-        const segmentWords = translatedWords.slice(wordIndex, wordIndex + wordsPerSegment);
-        wordIndex += wordsPerSegment;
-        return segmentWords.join(' ');
-    });
-
-    // Rebuild the text with tags
+    // Simple replacement: replace all text content with translated text
+    // while keeping all tags in their original positions
     let result = '';
-    let textSegmentIndex = 0;
+    let translatedTextUsed = false;
 
     for (const segment of segments) {
         if (segment.type === 'tag') {
             result += segment.content;
-        } else {
-            result += translatedSegments[textSegmentIndex] || '';
-            textSegmentIndex++;
+        } else if (!translatedTextUsed) {
+            // Replace the first text segment with the full translated text
+            result += translatedPlainText;
+            translatedTextUsed = true;
         }
+        // Skip other text segments (they're part of the original we're replacing)
     }
 
     return result;

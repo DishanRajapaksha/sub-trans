@@ -231,8 +231,8 @@ export const rebuildVttWithHeader = (header: string, cues: VttCue[]): string => 
   const cueBlocks = cues.map(joinCueLines);
   const body = cueBlocks.join('\n\n');
 
-  // Don't include STYLE blocks - video.js doesn't support them properly
-  // Just use basic WEBVTT header
-  const document = body.length > 0 ? `WEBVTT\n\n${body}` : 'WEBVTT';
+  // Keep the header with STYLE blocks for proper rendering
+  const normalizedHeader = header.trim();
+  const document = body.length > 0 ? `${normalizedHeader}\n\n${body}` : normalizedHeader;
   return document.endsWith('\n') ? document : `${document}\n`;
 };
