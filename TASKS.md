@@ -255,7 +255,7 @@ Components:
 
 ### 7.1 Configuration storage
 
-- [ ] Read and write configuration via extension storage:
+- [x] Read and write configuration via extension storage:
   - Provider type (e.g. a string identifier).
   - API base URL (if applicable).
   - API key or token.
@@ -263,7 +263,7 @@ Components:
 
 ### 7.2 Adapter interface
 
-- [ ] Expose a single entry point, conceptually:
+- [x] Expose a single entry point, conceptually:
   - Input:
     - Array of original texts in order.
     - Source language code.
@@ -271,22 +271,18 @@ Components:
   - Output:
     - Promise that resolves to an array of translated texts of the same length and in the same order.
 
-### 7.3 Implementation details
-
-- [ ] Implement translation using a single provider for MVP:
+- [x] Implement translation using a single provider for MVP:
   - Construct requests according to provider’s API.
   - Optionally batch texts to respect input size limits.
   - Preserve the mapping between original indexes and responses.
 
-- [ ] Handle mismatches:
+- [x] Handle mismatches:
   - If provider output does not match expected number of segments, either:
     - Fail gracefully, or
     - Apply a documented fallback strategy.
 
-### 7.4 Privacy and logging
-
-- [ ] Do not log raw subtitle text in normal operation.
-- [ ] Log only:
+- [x] Do not log raw subtitle text in normal operation.
+- [x] Log only:
   - Provider HTTP status codes.
   - Error messages.
   - High-level events (e.g. “translation started / completed”).

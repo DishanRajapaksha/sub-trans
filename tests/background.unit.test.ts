@@ -38,17 +38,23 @@ describe('background service worker', () => {
         ok: true,
         text: vi.fn().mockResolvedValue(sampleVtt)
       });
+      const translateTextsFn = vi.fn().mockResolvedValue(['EN Bonjour', 'EN Salut']);
       const module = await loadBackgroundModule();
       const response = await module.runTranslationPipeline(
         { url: 'https://example.com/subs.vtt', sourceLanguage: 'fr', targetLanguage: 'en' },
-        { fetchFn }
+        { fetchFn, translateTextsFn }
       );
 
       expect(fetchFn).toHaveBeenCalledWith('https://example.com/subs.vtt');
+      expect(translateTextsFn).toHaveBeenCalledWith({
+        texts: ['Bonjour Monde!', 'Salut'],
+        sourceLanguage: 'fr',
+        targetLanguage: 'en'
+      });
       expect(response.status).toBe('translated');
       const success = response as Extract<TranslationResponse, { status: 'translated' }>;
       expect(success.translatedVtt).toContain('WEBVTT');
-      expect(success.translatedVtt).toContain('[EN] Bonjour Monde!');
+      expect(success.translatedVtt).toContain('EN Bonjour');
     });
 
     it('propagates HTTP errors with descriptive messages', async () => {
