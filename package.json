@@ -1,0 +1,34 @@
+{
+  "name": "arte-subtitle-translator-extension",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Cross-browser MV3 extension scaffolded with Vite and TypeScript for translating Arte.tv subtitles.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch --mode development",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,html}\""
+  },
+  "keywords": [
+    "browser-extension",
+    "mv3",
+    "arte",
+    "subtitles"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.1.30",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.47.0",
+    "@typescript-eslint/parser": "^8.47.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "vite-plugin-static-copy": "^3.1.4"
+  }
+}
