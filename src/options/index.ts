@@ -41,84 +41,93 @@ const setSyncStorage = async (values: OptionsFormValues): Promise<void> => {
   });
 };
 
-const statusEl = document.querySelector<HTMLElement>('[data-status]');
-const formEl = document.querySelector<HTMLFormElement>('#options-form');
+export class OptionsPage {
+  constructor(
+    private formEl: HTMLFormElement | null,
+    private statusEl: HTMLElement | null
+  ) { }
 
-const renderStatus = (message: string, isError = false): void => {
-  if (!statusEl) {
-    return;
-  }
-
-  statusEl.textContent = message;
-  statusEl.dataset.state = isError ? 'error' : 'success';
-};
-
-const populateForm = (values: OptionsFormValues): void => {
-  if (!formEl) {
-    return;
-  }
-
-  Object.entries(values).forEach(([key, value]) => {
-    if (typeof value !== 'string') {
+  renderStatus(message: string, isError = false): void {
+    if (!this.statusEl) {
       return;
     }
 
-    const input = formEl.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${key}"]`);
-    if (input) {
-      input.value = value;
+    this.statusEl.textContent = message;
+    this.statusEl.dataset.state = isError ? 'error' : 'success';
+  }
+
+  populateForm(values: OptionsFormValues): void {
+    if (!this.formEl) {
+      return;
     }
-  });
-};
 
-const readFormValues = (): OptionsFormValues | null => {
-  if (!formEl) {
-    return null;
+    Object.entries(values).forEach(([key, value]) => {
+      if (typeof value !== 'string') {
+        return;
+      }
+
+      const input = this.formEl!.querySelector<HTMLInputElement | HTMLSelectElement>(
+        `[name="${key}"]`
+      );
+      if (input) {
+        input.value = value;
+      }
+    });
   }
 
-  const formData = new FormData(formEl);
-  const providerInput = String(formData.get('provider') ?? '').trim();
-  const apiBaseUrl = String(formData.get('apiBaseUrl') ?? '').trim();
-  const apiKey = String(formData.get('apiKey') ?? '').trim();
-  const model = String(formData.get('model') ?? '').trim();
+  readFormValues(): OptionsFormValues | null {
+    if (!this.formEl) {
+      return null;
+    }
 
-  if (!isSupportedProvider(providerInput)) {
-    renderStatus('Provider is required', true);
-    return null;
+    const formData = new FormData(this.formEl);
+    const providerInput = String(formData.get('provider') ?? '').trim();
+    const apiBaseUrl = String(formData.get('apiBaseUrl') ?? '').trim();
+    const apiKey = String(formData.get('apiKey') ?? '').trim();
+    const model = String(formData.get('model') ?? '').trim();
+
+    if (!isSupportedProvider(providerInput)) {
+      this.renderStatus('Provider is required', true);
+      return null;
+    }
+
+    return { provider: providerInput, apiBaseUrl, apiKey, model };
   }
 
-  return { provider: providerInput, apiBaseUrl, apiKey, model };
-};
+  async handleSubmit(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const values = this.readFormValues();
+    if (!values) {
+      return;
+    }
 
-const handleSubmit = async (event: SubmitEvent): Promise<void> => {
-  event.preventDefault();
-  const values = readFormValues();
-  if (!values) {
-    return;
+    try {
+      await setSyncStorage(values);
+      this.renderStatus('Saved translation preferences');
+    } catch (error) {
+      this.renderStatus(`Failed to save options: ${String(error)}`, true);
+    }
   }
 
-  try {
-    await setSyncStorage(values);
-    renderStatus('Saved translation preferences');
-  } catch (error) {
-    renderStatus(`Failed to save options: ${String(error)}`, true);
+  async init(): Promise<void> {
+    if (!this.formEl) {
+      return;
+    }
+
+    this.formEl.addEventListener('submit', (event) => {
+      void this.handleSubmit(event);
+    });
+
+    try {
+      const values = await getSyncStorage();
+      this.populateForm(values);
+    } catch (error) {
+      this.renderStatus(`Unable to load saved options: ${String(error)}`, true);
+    }
   }
-};
+}
 
-const init = async (): Promise<void> => {
-  if (!formEl) {
-    return;
-  }
-
-  formEl.addEventListener('submit', (event) => {
-    void handleSubmit(event);
-  });
-
-  try {
-    const values = await getSyncStorage();
-    populateForm(values);
-  } catch (error) {
-    renderStatus(`Unable to load saved options: ${String(error)}`, true);
-  }
-};
-
-void init();
+const statusEl = document.querySelector<HTMLElement>('[data-status]');
+const formEl = document.querySelector<HTMLFormElement>('#options-form');
+const page = new OptionsPage(formEl, statusEl);
+void page.init();
