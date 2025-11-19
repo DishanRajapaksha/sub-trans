@@ -8,6 +8,7 @@ export type TranslateVttMessage = {
 export type TranslationSuccessResponse = {
   status: 'translated';
   translatedVtt: string;
+  mapping?: Record<string, string>;
 };
 
 export type TranslationErrorResponse = {

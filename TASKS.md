@@ -375,3 +375,36 @@ Components:
   - In Firefox: “Load temporary add-on”.
 - [x] Optionally:
   - Add a build step that packages `dist/` as a `.zip` for store uploads.
+
+---
+
+## 12. ARTE-Specific Implementation (Backup Approach)
+
+**Context**: ARTE.tv uses a custom subtitle rendering system that doesn't use standard HTML5 `<track>` elements. Subtitles are loaded via XHR and rendered with custom JavaScript/CSS.
+
+### 12.1 XHR Interception Approach (Primary)
+
+- [ ] Intercept XHR requests for VTT files in content script
+- [ ] Replace response with translated VTT before ARTE's player processes it
+- [ ] Ensure translated VTT preserves all STYLE blocks and styling tags
+- [ ] Test that ARTE's player renders translated subtitles with original styling
+
+### 12.2 DOM Replacement Approach (Backup)
+
+If XHR interception proves too complex or breaks ARTE's player:
+
+- [ ] Translate entire VTT file once (already implemented)
+- [ ] Parse translated VTT into a lookup map: `{ timestamp: translatedText }`
+- [ ] Use MutationObserver to watch for ARTE's subtitle DOM elements
+- [ ] When a subtitle appears:
+  - Extract its timestamp from ARTE's player state
+  - Look up translated text from the map
+  - Replace the DOM element's text content
+- [ ] Benefits:
+  - Only one translation request per VTT file
+  - Uses ARTE's exact rendering (same size, colors, positioning)
+  - Fast DOM manipulation
+- [ ] Challenges:
+  - Need to identify ARTE's subtitle DOM structure
+  - Need to sync with ARTE's player timeline
+  - More complex implementation

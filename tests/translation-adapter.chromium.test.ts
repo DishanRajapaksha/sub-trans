@@ -280,7 +280,7 @@ describe('translation adapter (chromium)', () => {
     });
   });
 
-  it('rejects when the provider returns a mismatched number of translations', async () => {
+  it('pads missing translations from provider responses', async () => {
     const config: TranslationSettings = {
       provider: 'openai',
       apiKey: 'key',
@@ -291,12 +291,40 @@ describe('translation adapter (chromium)', () => {
     const { fetchFn } = createFetchStub((_call) => buildProviderResponse(['only-one']));
 
     await withPage(async (page) => {
-      await expect(
-        runTranslationInChromium(page, { texts: ['a', 'b'], sourceLanguage: 'fr', targetLanguage: 'en' }, {
+      const result = await runTranslationInChromium(
+        page,
+        { texts: ['a', 'b'], sourceLanguage: 'fr', targetLanguage: 'en' },
+        {
           fetchFn,
           loadSettingsFn: async () => config
-        })
-      ).rejects.toThrow(/returned 1 results for 2 requested segments/);
+        }
+      );
+
+      expect(result).toEqual(['only-one', '']);
+    });
+  });
+
+  it('truncates extra translations from provider responses', async () => {
+    const config: TranslationSettings = {
+      provider: 'openai',
+      apiKey: 'key',
+      apiBaseUrl: '',
+      model: ''
+    };
+
+    const { fetchFn } = createFetchStub((_call) => buildProviderResponse(['first', 'second', 'third']));
+
+    await withPage(async (page) => {
+      const result = await runTranslationInChromium(
+        page,
+        { texts: ['a', 'b'], sourceLanguage: 'fr', targetLanguage: 'en' },
+        {
+          fetchFn,
+          loadSettingsFn: async () => config
+        }
+      );
+
+      expect(result).toEqual(['first', 'second']);
     });
   });
 
@@ -617,5 +645,27 @@ describe('translation adapter (chromium)', () => {
       );
       expect(result).toEqual(['OK', '']);
     });
+  });
+  it('translates via Demo provider without network calls', async () => {
+    const config: TranslationSettings = {
+      provider: 'demo',
+      apiKey: '',
+      apiBaseUrl: '',
+      model: ''
+    };
+
+    const { fetchFn, calls } = createFetchStub((_call) => buildProviderResponse([]));
+
+    await withPage(async (page) => {
+      const result = await runTranslationInChromium(
+        page,
+        { texts: ['hello', 'world'], sourceLanguage: 'fr', targetLanguage: 'en' },
+        { fetchFn, loadSettingsFn: async () => config }
+      );
+
+      expect(result).toEqual(['DEMO TRANSLATION: HELLO', 'DEMO TRANSLATION: WORLD']);
+    });
+
+    expect(calls).toHaveLength(0);
   });
 });
