@@ -78,3 +78,37 @@ export const replaceTextPreservingTags = (original: string, translatedPlainText:
 
     return result;
 };
+
+/**
+ * Converts VTT text with styling tags to HTML.
+ * Example: "<c.yellow.bg_black>Text</c>" -> "<span class=\"yellow bg_black\">Text</span>"
+ * Also converts newlines to <br>.
+ */
+export const convertVttToHtml = (vttText: string): string => {
+    let html = vttText;
+
+    // Convert <c.class1.class2>...</c> to <span class="class1 class2">...</span>
+    // We handle nested tags by using a regex that matches the opening tag
+    // and we'll just replace </c> with </span>.
+    // Note: This is a simple regex-based parser and might not handle complex nesting perfectly,
+    // but should suffice for standard VTT styling.
+
+    // Replace opening tags <c.class...>
+    html = html.replace(/<c\.([a-zA-Z0-9_.-]+)>/g, (match, classes) => {
+        const classList = classes.split('.').join(' ');
+        return `<span class="${classList}">`;
+    });
+
+    // Replace closing tags </c>
+    html = html.replace(/<\/c>/g, '</span>');
+
+    // Handle standard tags if present (b, i, u)
+    html = html.replace(/<b>/g, '<b>').replace(/<\/b>/g, '</b>');
+    html = html.replace(/<i>/g, '<i>').replace(/<\/i>/g, '</i>');
+    html = html.replace(/<u>/g, '<u>').replace(/<\/u>/g, '</u>');
+
+    // Convert newlines to <br>
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
+};

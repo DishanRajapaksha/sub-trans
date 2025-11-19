@@ -1,7 +1,7 @@
 import { extensionBrowser } from '../shared/browser';
 import { TranslateVttMessage, TranslationResponse, TranslationSuccessResponse } from '../shared/messages';
 import { parseVttWithHeader, rebuildVttWithHeader, VttDocument } from '../shared/vtt';
-import { extractPlainText, replaceTextPreservingTags } from '../shared/vtt-styling';
+import { extractPlainText, replaceTextPreservingTags, convertVttToHtml } from '../shared/vtt-styling';
 import { translateTexts } from '../shared/translation-adapter';
 
 const log = (...args: unknown[]): void => {
@@ -72,6 +72,21 @@ export const runTranslationPipeline = async (
       text: replaceTextPreservingTags(cue.text, translatedTexts[index] ?? '')
     }));
 
+    // Create a mapping of Original Text -> Translated Text
+    // We normalize the original text (trim, collapse spaces) to match what we'll find in the DOM
+    const mapping: Record<string, string> = {};
+    cues.forEach((cue, index) => {
+      // Extract plain text for the key (since DOM might not have tags)
+      const plainOriginal = plainTexts[index].replace(/\s+/g, ' ').trim();
+      // The value should be the translated text converted to HTML with styling tags
+      // This allows us to replace innerHTML in the DOM while preserving styling
+      const translatedHtml = convertVttToHtml(translatedCues[index].text);
+
+      if (plainOriginal && translatedHtml) {
+        mapping[plainOriginal] = translatedHtml;
+      }
+    });
+
     // Log first cue comparison for debugging
     if (cues.length > 0) {
       log('=== CUE COMPARISON (first cue) ===');
@@ -86,11 +101,15 @@ export const runTranslationPipeline = async (
     log('Translation pipeline completed for', request.url);
     log('Header preview:', header.substring(0, 200));
     log('Translated VTT preview:', translatedVtt.substring(0, 500));
-    return buildSuccessResponse(translatedVtt);
+
+    return {
+      status: 'translated',
+      translatedVtt,
+      mapping
+    };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log('Unexpected translation pipeline failure', message);
-    return { status: 'error', message };
+    log('Translation pipeline failed:', error);
+    return { status: 'error', message: String(error) };
   }
 };
 
@@ -148,7 +167,10 @@ const translateMessageHandler = createTranslateMessageHandler();
 
 extensionBrowser.runtime.onMessage.addListener(translateMessageHandler);
 
-// Intercept VTT subtitle requests
+// Track active and completed translations to prevent duplicates
+const translationPromises = new Map<string, Promise<TranslationResponse>>();
+
+// Intercept VTT subtitle requests and pre-translate them
 extensionBrowser.webRequest.onBeforeRequest.addListener(
   (details) => {
     const url = details.url;
@@ -157,20 +179,69 @@ extensionBrowser.webRequest.onBeforeRequest.addListener(
     if (url.includes('.vtt') && url.includes('arte-cmafhls.akamaized.net')) {
       // Check if it's a French subtitle (VF = Version Française)
       if (url.includes('_st_VF') || url.includes('_VF-')) {
-        log('Detected French VTT request:', url);
+        const baseUrl = url.split('?')[0];
 
-        // Send message to all ARTE tabs
-        extensionBrowser.tabs.query({ url: 'https://www.arte.tv/*' }).then((tabs) => {
-          tabs.forEach((tab) => {
-            if (tab.id) {
-              extensionBrowser.tabs.sendMessage(tab.id, {
-                type: 'FRENCH_VTT_DETECTED',
-                url: url
-              }).catch(() => {
-                // Content script might not be ready yet, that's okay
+        // Check if we're already handling this URL
+        if (translationPromises.has(baseUrl)) {
+          log('Request for already handled VTT:', baseUrl);
+          // If it's already done, we might want to resend the result to the tab
+          // in case the content script missed it (e.g. page reload)
+          translationPromises.get(baseUrl)?.then((response) => {
+            if (response.status === 'translated') {
+              extensionBrowser.tabs.query({ url: 'https://www.arte.tv/*' }).then((tabs) => {
+                tabs.forEach((tab) => {
+                  if (tab.id) {
+                    extensionBrowser.tabs.sendMessage(tab.id, {
+                      type: 'VTT_TRANSLATED',
+                      url: url,
+                      translatedVtt: response.translatedVtt,
+                      mapping: response.mapping
+                    }).catch(() => { });
+                  }
+                });
               });
             }
           });
+          return {};
+        }
+
+        log('Detected new French VTT request:', url);
+
+        // Create and store the translation promise
+        const promise = runTranslationPipeline({
+          url: url,
+          sourceLanguage: 'fr',
+          targetLanguage: 'en'
+        });
+
+        translationPromises.set(baseUrl, promise);
+
+        promise.then((response) => {
+          if (response.status === 'translated') {
+            log('Translation completed, sending to content script:', url);
+
+            // Send translated VTT to all ARTE tabs
+            extensionBrowser.tabs.query({ url: 'https://www.arte.tv/*' }).then((tabs) => {
+              tabs.forEach((tab) => {
+                if (tab.id) {
+                  extensionBrowser.tabs.sendMessage(tab.id, {
+                    type: 'VTT_TRANSLATED',
+                    url: url,
+                    translatedVtt: response.translatedVtt,
+                    mapping: response.mapping
+                  }).catch(() => {
+                    // Content script might not be ready yet
+                  });
+                }
+              });
+            });
+          } else {
+            // If failed, remove from cache so we can try again later
+            translationPromises.delete(baseUrl);
+          }
+        }).catch((error) => {
+          log('Translation failed:', error);
+          translationPromises.delete(baseUrl);
         });
       }
     }
