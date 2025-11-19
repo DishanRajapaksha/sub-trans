@@ -6,6 +6,11 @@ export type VttCue = {
   text: string;
 };
 
+export type VttDocument = {
+  header: string;
+  cues: VttCue[];
+};
+
 const normalizeVttLines = (vttText: string): string[] => {
   const normalized = vttText.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   return normalized.split('\n');
@@ -138,6 +143,71 @@ export const parseVtt = (vttText: string): VttCue[] => {
   return cues;
 };
 
+export const parseVttWithHeader = (vttText: string): VttDocument => {
+  const lines = normalizeVttLines(vttText);
+  const headerLines: string[] = [];
+  let index = 0;
+
+  // Extract header (WEBVTT + STYLE/NOTE/REGION blocks)
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    const upper = trimmed.toUpperCase();
+
+    // Add WEBVTT line
+    if (upper.startsWith('WEBVTT')) {
+      headerLines.push(line);
+      index += 1;
+      continue;
+    }
+
+    // Check if this is a metadata block
+    if (upper.startsWith('STYLE') || upper.startsWith('NOTE') || upper.startsWith('REGION')) {
+      headerLines.push(line);
+      index += 1;
+
+      // Add all lines until we hit a blank line or a cue
+      while (index < lines.length) {
+        const nextLine = lines[index];
+        const nextTrimmed = nextLine?.trim() ?? '';
+
+        if (nextTrimmed === '') {
+          headerLines.push(nextLine);
+          index += 1;
+          break;
+        }
+
+        if (nextLine.includes('-->')) {
+          break;
+        }
+
+        headerLines.push(nextLine);
+        index += 1;
+      }
+      continue;
+    }
+
+    // If it's a blank line in the header section, keep it
+    if (trimmed === '' && headerLines.length > 0) {
+      headerLines.push(line);
+      index += 1;
+      continue;
+    }
+
+    // If we hit a cue, we're done with the header
+    if (line.includes('-->') || (index + 1 < lines.length && lines[index + 1]?.includes('-->'))) {
+      break;
+    }
+
+    index += 1;
+  }
+
+  const header = headerLines.join('\n');
+  const cues = parseVtt(vttText);
+
+  return { header, cues };
+};
+
 const joinCueLines = (cue: VttCue): string => {
   const lines: string[] = [];
   if (cue.id) {
@@ -153,6 +223,16 @@ const joinCueLines = (cue: VttCue): string => {
 export const rebuildVtt = (cues: VttCue[]): string => {
   const cueBlocks = cues.map(joinCueLines);
   const body = cueBlocks.join('\n\n');
+  const document = body.length > 0 ? `WEBVTT\n\n${body}` : 'WEBVTT';
+  return document.endsWith('\n') ? document : `${document}\n`;
+};
+
+export const rebuildVttWithHeader = (header: string, cues: VttCue[]): string => {
+  const cueBlocks = cues.map(joinCueLines);
+  const body = cueBlocks.join('\n\n');
+
+  // Don't include STYLE blocks - video.js doesn't support them properly
+  // Just use basic WEBVTT header
   const document = body.length > 0 ? `WEBVTT\n\n${body}` : 'WEBVTT';
   return document.endsWith('\n') ? document : `${document}\n`;
 };

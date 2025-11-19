@@ -254,4 +254,42 @@ export const maybeBootstrap = (deps: MaybeBootstrapDependencies = {}): void => {
   }
 };
 
+// Listen for French VTT detection from background script
+const processedVttUrls = new Set<string>();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'FRENCH_VTT_DETECTED') {
+    const vttUrl = message.url;
+    const baseUrl = vttUrl.split('?')[0];
+
+    // Skip if we've already processed this VTT file
+    if (processedVttUrls.has(baseUrl)) {
+      return;
+    }
+
+    processedVttUrls.add(baseUrl);
+    log('Received French VTT URL from background:', vttUrl);
+
+    // Find the video element
+    const video = document.querySelector('video');
+    if (!(video instanceof HTMLVideoElement)) {
+      log('No video element found');
+      return;
+    }
+
+    // Request translation
+    requestTranslation({ src: vttUrl } as HTMLTrackElement).then((translatedVtt) => {
+      if (translatedVtt) {
+        // Create a track element for injection
+        const track = document.createElement('track');
+        track.kind = 'subtitles';
+        track.label = 'English (translated)';
+        track.srclang = 'en';
+
+        injectTranslatedTrack(video, track, translatedVtt);
+      }
+    });
+  }
+});
+
 maybeBootstrap();

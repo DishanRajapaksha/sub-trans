@@ -1,6 +1,7 @@
 import { extensionBrowser } from '../shared/browser';
 import { TranslateVttMessage, TranslationResponse, TranslationSuccessResponse } from '../shared/messages';
-import { parseVtt, rebuildVtt, VttCue } from '../shared/vtt';
+import { parseVttWithHeader, rebuildVttWithHeader, VttDocument } from '../shared/vtt';
+import { extractPlainText, replaceTextPreservingTags } from '../shared/vtt-styling';
 import { translateTexts } from '../shared/translation-adapter';
 
 const log = (...args: unknown[]): void => {
@@ -18,8 +19,8 @@ const buildSuccessResponse = (translatedVtt: string): TranslationSuccessResponse
 
 type TranslationPipelineDeps = {
   fetchFn?: typeof fetch;
-  parseVttFn?: (vttText: string) => VttCue[];
-  rebuildVttFn?: (cues: VttCue[]) => string;
+  parseVttFn?: (vttText: string) => VttDocument;
+  rebuildVttFn?: (header: string, cues: VttDocument['cues']) => string;
   translateTextsFn?: typeof translateTexts;
 };
 
@@ -34,8 +35,8 @@ export const runTranslationPipeline = async (
   deps: TranslationPipelineDeps = {}
 ): Promise<TranslationResponse> => {
   const fetchFn = deps.fetchFn ?? fetch;
-  const parseVttFn = deps.parseVttFn ?? parseVtt;
-  const rebuildVttFn = deps.rebuildVttFn ?? rebuildVtt;
+  const parseVttFn = deps.parseVttFn ?? parseVttWithHeader;
+  const rebuildVttFn = deps.rebuildVttFn ?? rebuildVttWithHeader;
   const translateTextsFn = deps.translateTextsFn ?? translateTexts;
 
   try {
@@ -47,12 +48,14 @@ export const runTranslationPipeline = async (
     }
 
     const vttText = await response.text();
-    const cues = parseVttFn(vttText);
-    const texts = cues.map((cue) => cue.text);
-    log('Starting translation pipeline for', request.url, 'with', texts.length, 'cues.');
+    const { header, cues } = parseVttFn(vttText);
+
+    // Extract plain text from cues (removing VTT styling tags)
+    const plainTexts = cues.map((cue) => extractPlainText(cue.text));
+    log('Starting translation pipeline for', request.url, 'with', plainTexts.length, 'cues.');
 
     const translatedTexts = await translateTextsFn({
-      texts,
+      texts: plainTexts,
       sourceLanguage: request.sourceLanguage,
       targetLanguage: request.targetLanguage
     });
@@ -63,12 +66,13 @@ export const runTranslationPipeline = async (
       return { status: 'error', message: mismatchError };
     }
 
+    // Replace text while preserving original VTT styling tags
     const translatedCues = cues.map((cue, index) => ({
       ...cue,
-      text: translatedTexts[index] ?? ''
+      text: replaceTextPreservingTags(cue.text, translatedTexts[index] ?? '')
     }));
 
-    const translatedVtt = rebuildVttFn(translatedCues);
+    const translatedVtt = rebuildVttFn(header, translatedCues);
     log('Translation pipeline completed for', request.url);
     return buildSuccessResponse(translatedVtt);
   } catch (error) {
@@ -131,3 +135,35 @@ export const createTranslateMessageHandler = (deps: TranslateMessageHandlerDeps 
 const translateMessageHandler = createTranslateMessageHandler();
 
 extensionBrowser.runtime.onMessage.addListener(translateMessageHandler);
+
+// Intercept VTT subtitle requests
+extensionBrowser.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    const url = details.url;
+
+    // Check if this is a French VTT file from ARTE
+    if (url.includes('.vtt') && url.includes('arte-cmafhls.akamaized.net')) {
+      // Check if it's a French subtitle (VF = Version Française)
+      if (url.includes('_st_VF') || url.includes('_VF-')) {
+        log('Detected French VTT request:', url);
+
+        // Send message to all ARTE tabs
+        extensionBrowser.tabs.query({ url: 'https://www.arte.tv/*' }).then((tabs) => {
+          tabs.forEach((tab) => {
+            if (tab.id) {
+              extensionBrowser.tabs.sendMessage(tab.id, {
+                type: 'FRENCH_VTT_DETECTED',
+                url: url
+              }).catch(() => {
+                // Content script might not be ready yet, that's okay
+              });
+            }
+          });
+        });
+      }
+    }
+
+    return {}; // Don't block the request
+  },
+  { urls: ['https://arte-cmafhls.akamaized.net/*'] }
+);

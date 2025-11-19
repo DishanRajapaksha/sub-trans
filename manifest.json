@@ -8,7 +8,9 @@
     "type": "module"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "webRequest",
+    "tabs"
   ],
   "host_permissions": [
     "https://www.arte.tv/*",
