@@ -75,13 +75,13 @@
       Provider
       <select name="provider" required>
         <option value="openai">OpenAI</option>
-        <option value="mistral">Mistral</option>
+        <option value="mistral" selected>Mistral</option>
         <option value="demo">Demo</option>
       </select>
     </label>
     <label>
       API base URL
-      <input type="url" name="apiBaseUrl" placeholder="https://api.example.com" />
+      <input type="url" name="apiBaseUrl" placeholder="https://api.example.com" value="https://api.mistral.ai/v1" />
     </label>
     <label>
       API key
@@ -89,7 +89,7 @@
     </label>
     <label>
       Model / mode
-      <input type="text" name="model" placeholder="Preferred model" />
+      <input type="text" name="model" placeholder="Preferred model" value="mistral-small-latest" />
     </label>
     <button type="submit">Save</button>
     <div data-status aria-live="polite"></div>

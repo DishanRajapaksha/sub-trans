@@ -56,6 +56,7 @@ const buildSystemPrompt = (sourceLanguage: string, targetLanguage: string): stri
     'You are a subtitle translation engine.',
     `Translate every cue from ${sourceLanguage} to ${targetLanguage}.`,
     'Do not summarise, merge, or annotate the cues.',
+    'Keep the same number of cues and their order.',
     'Reply with JSON: {"translations":["string"]} matching the provided order.'
   ].join(' ');
 };
@@ -150,6 +151,24 @@ const normalizeMessageContent = (content: unknown): string => {
   throw new Error('Translation provider returned an unsupported response payload.');
 };
 
+const normalizeTranslationCount = (translations: unknown[], expectedLength: number): string[] => {
+  const sanitized = translations.map((entry) => (typeof entry === 'string' ? entry : ''));
+  if (sanitized.length === expectedLength) {
+    return sanitized;
+  }
+
+  log('Translation provider returned a mismatched translation count.', {
+    expected: expectedLength,
+    received: sanitized.length
+  });
+
+  if (sanitized.length > expectedLength) {
+    return sanitized.slice(0, expectedLength);
+  }
+
+  return sanitized.concat(Array.from({ length: expectedLength - sanitized.length }, () => ''));
+};
+
 const parseTranslationsJson = (content: string, expectedLength: number): string[] => {
   let parsed: unknown;
   try {
@@ -163,14 +182,7 @@ const parseTranslationsJson = (content: string, expectedLength: number): string[
     throw new Error('Translation provider response is missing the translations array.');
   }
 
-  const sanitized = translations.map((entry) => (typeof entry === 'string' ? entry : ''));
-  if (sanitized.length !== expectedLength) {
-    throw new Error(
-      `Translation provider returned ${sanitized.length} results for ${expectedLength} requested segments.`
-    );
-  }
-
-  return sanitized;
+  return normalizeTranslationCount(translations, expectedLength);
 };
 
 const translateBatch = async (
@@ -186,7 +198,12 @@ const translateBatch = async (
 
   const baseUrl = getProviderBaseUrl(provider, settings.apiBaseUrl);
   const payload = buildChatCompletionsPayload(batch, request, settings);
-  const url = `${baseUrl}${CHAT_COMPLETIONS_PATH}`;
+
+  let url = baseUrl;
+  if (!url.endsWith(CHAT_COMPLETIONS_PATH)) {
+    url = `${baseUrl}${CHAT_COMPLETIONS_PATH}`;
+  }
+
   const response = await fetchFn(url, {
     method: 'POST',
     headers: {

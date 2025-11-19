@@ -46,9 +46,9 @@ describe('Options Page', () => {
       <form id="options-form">
         <select name="provider">
           <option value="openai">OpenAI</option>
-          <option value="mistral">Mistral</option>
+          <option value="mistral" selected>Mistral</option>
         </select>
-        <input name="apiBaseUrl" />
+        <input name="apiBaseUrl" value="https://api.mistral.ai/v1/chat/completions" />
         <input name="apiKey" />
         <input name="model" />
         <button type="submit">Save</button>
@@ -75,12 +75,12 @@ describe('Options Page', () => {
         // Wait for async operations
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        const apiKeyInput = document.querySelector<HTMLInputElement>('[name="apiKey"]');
+        const apiKeyInput = document.querySelector<HTMLInputElement>('[name="apiKey"]'); z
         const providerSelect = document.querySelector<HTMLSelectElement>('[name="provider"]');
 
         expect(apiKeyInput?.value).toBe('test-key');
         expect(providerSelect?.value).toBe('mistral');
-    });
+    }); ``
 
     it('falls back to local storage if sync is undefined', async () => {
         mocks.useSync.value = false;

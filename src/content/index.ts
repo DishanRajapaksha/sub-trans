@@ -10,7 +10,23 @@ const log = (...args: unknown[]): void => {
 const translationMap = new Map<string, string>();
 
 // Listen for pre-translated VTTs from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+const processElementTree = (root: ParentNode | null): void => {
+  if (!root) {
+    return;
+  }
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    handleTextNode(node as Text);
+  }
+};
+
+const applyTranslationsToDocument = (): void => {
+  processElementTree(document.body);
+};
+
+chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'VTT_TRANSLATED') {
     log('Received translated VTT with mapping');
 
@@ -24,6 +40,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         count++;
       }
       log(`Loaded ${count} translation mappings`);
+      applyTranslationsToDocument();
     }
   }
 });
@@ -37,12 +54,7 @@ const observer = new MutationObserver((mutations) => {
       if (target.nodeType === Node.TEXT_NODE) {
         handleTextNode(target as Text);
       } else if (target instanceof HTMLElement) {
-        // Check children
-        const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-        let node;
-        while (node = walker.nextNode()) {
-          handleTextNode(node as Text);
-        }
+        processElementTree(target);
       }
     }
   });
@@ -95,5 +107,8 @@ observer.observe(document.body, {
   subtree: true,
   characterData: true
 });
+
+// Process any existing subtitles when the content script loads
+applyTranslationsToDocument();
 
 log('Arte Subtitle Translator: DOM replacement active');

@@ -10,8 +10,8 @@ export type TranslationSettings = {
 };
 
 export const DEFAULT_TRANSLATION_SETTINGS: TranslationSettings = {
-  provider: 'openai',
-  apiBaseUrl: '',
+  provider: 'mistral',
+  apiBaseUrl: 'https://api.mistral.ai/v1/chat/completions',
   apiKey: '',
   model: ''
 };
