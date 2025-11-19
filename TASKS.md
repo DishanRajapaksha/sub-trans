@@ -293,7 +293,7 @@ Components:
 
 ### 8.1 UI design
 
-- [ ] Create `options.html` with:
+- [x] Create `options.html` with:
   - Form fields for:
     - Provider selection (dropdown or text).
     - API base URL (if relevant).
@@ -304,10 +304,10 @@ Components:
 
 ### 8.2 Options logic
 
-- [ ] On page load:
+- [x] On page load:
   - Retrieve configuration from extension storage.
   - Populate form fields with current values.
-- [ ] On “Save”:
+- [x] On “Save”:
   - Validate required fields.
   - Write updated configuration to storage.
   - Show a short “Saved” confirmation message.
@@ -316,9 +316,9 @@ Components:
 
 ## 9. Permissions, Storage and Compatibility
 
-- [ ] Use the `browser` namespace where available, with a thin wrapper for Chrome’s `chrome` namespace if necessary, to keep one codebase.
-- [ ] Store configuration in `storage.sync` if supported; otherwise fall back to `storage.local`.
-- [ ] Ensure:
+- [x] Use the `browser` namespace where available, with a thin wrapper for Chrome’s `chrome` namespace if necessary, to keep one codebase.
+- [x] Store configuration in `storage.sync` if supported; otherwise fall back to `storage.local`.
+- [x] Ensure:
   - All network requests to Arte’s CDN domains are permitted by host permissions.
   - All requests to the translation provider are allowed by the extension’s permissions and by CORS rules.
 
@@ -328,34 +328,34 @@ Components:
 
 ### 10.1 Manual testing on Arte.tv
 
-- [ ] Install the extension as an unpacked/temporary add-on.
-- [ ] Open an Arte.tv video known to have French subtitles.
-- [ ] Check the subtitle menu before the extension acts:
+- [x] Install the extension as an unpacked/temporary add-on.
+- [x] Open an Arte.tv video known to have French subtitles.
+- [x] Check the subtitle menu before the extension acts:
   - Note existing audio and subtitle options.
-- [ ] With the extension enabled:
+- [x] With the extension enabled:
   - Wait briefly for the content script to run.
   - Reopen the subtitle menu.
   - Verify that a new subtitle option appears (e.g. “English (translated)”).
   - Select this option and confirm that subtitles differ from the original French track in a clear way (for early testing, a simple text marker is acceptable).
-- [ ] Confirm:
+- [x] Confirm:
   - No visible impact on video playback if translation fails.
   - No console errors in normal scenarios.
 
 ### 10.2 Edge and failure cases
 
-- [ ] Test a video with no French subtitles:
+- [x] Test a video with no French subtitles:
   - Confirm that the extension does not inject anything and fails quietly.
-- [ ] Test when:
+- [x] Test when:
   - API key is missing.
   - Translation provider is unreachable.
   - Provider returns an error.
-- [ ] Verify:
+- [x] Verify:
   - The content script logs an understandable error.
   - Arte’s player behaves normally.
 
 ### 10.3 Episode / navigation behaviour
 
-- [ ] On Arte, switch to another episode or video without refreshing the page:
+- [x] On Arte, switch to another episode or video without refreshing the page:
   - Confirm that the extension detects the new `<video>` and injects subtitles again.
   - Confirm that it does not create duplicate English tracks for the same video.
 
@@ -363,15 +363,15 @@ Components:
 
 ## 11. Packaging Tasks
 
-- [ ] Ensure `dist/` contains all necessary files:
+- [x] Ensure `dist/` contains all necessary files:
   - Built background script
   - Built content script
   - VTT utilities
   - Translation adapter
   - Options page assets
   - `manifest.json`
-- [ ] Test loading:
+- [x] Test loading:
   - In Chrome: “Load unpacked” pointing at `dist/`.
   - In Firefox: “Load temporary add-on”.
-- [ ] Optionally:
+- [x] Optionally:
   - Add a build step that packages `dist/` as a `.zip` for store uploads.
