@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "description": "Detects Arte.tv subtitles and prepares them for translation.",
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "src/background/index.ts",
     "type": "module"
   },
   "permissions": [
@@ -23,13 +23,13 @@
         "https://www.arte.tv/*"
       ],
       "js": [
-        "content.js"
+        "src/content/index.ts"
       ],
       "run_at": "document_idle"
     }
   ],
   "options_ui": {
-    "page": "options.html",
+    "page": "public/options.html",
     "open_in_tab": true
   }
 }

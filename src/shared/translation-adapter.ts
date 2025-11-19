@@ -20,7 +20,8 @@ const CHAT_COMPLETIONS_PATH = '/chat/completions';
 
 const PROVIDER_DEFAULT_MODELS: Record<TranslationProvider, string> = {
   openai: 'gpt-4o-mini-translate',
-  mistral: 'mistral-large-latest'
+  mistral: 'mistral-large-latest',
+  demo: 'demo-model'
 };
 
 const MAX_SEGMENTS_PER_BATCH = 20;
@@ -82,6 +83,10 @@ const ensureProvider = (provider: string): TranslationProvider => {
 };
 
 const ensureApiKey = (settings: TranslationSettings): void => {
+  if (settings.provider === 'demo') {
+    return;
+  }
+
   if (!settings.apiKey) {
     throw new Error('Translation provider API key is required.');
   }
@@ -175,6 +180,10 @@ const translateBatch = async (
   settings: TranslationSettings,
   fetchFn: typeof fetch
 ): Promise<string[]> => {
+  if (provider === 'demo') {
+    return batch.map((segment) => `DEMO TRANSLATION: ${segment.text.toUpperCase()}`);
+  }
+
   const baseUrl = getProviderBaseUrl(provider, settings.apiBaseUrl);
   const payload = buildChatCompletionsPayload(batch, request, settings);
   const url = `${baseUrl}${CHAT_COMPLETIONS_PATH}`;

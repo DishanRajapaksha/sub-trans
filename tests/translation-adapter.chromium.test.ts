@@ -618,4 +618,26 @@ describe('translation adapter (chromium)', () => {
       expect(result).toEqual(['OK', '']);
     });
   });
+  it('translates via Demo provider without network calls', async () => {
+    const config: TranslationSettings = {
+      provider: 'demo',
+      apiKey: '',
+      apiBaseUrl: '',
+      model: ''
+    };
+
+    const { fetchFn, calls } = createFetchStub((_call) => buildProviderResponse([]));
+
+    await withPage(async (page) => {
+      const result = await runTranslationInChromium(
+        page,
+        { texts: ['hello', 'world'], sourceLanguage: 'fr', targetLanguage: 'en' },
+        { fetchFn, loadSettingsFn: async () => config }
+      );
+
+      expect(result).toEqual(['DEMO TRANSLATION: HELLO', 'DEMO TRANSLATION: WORLD']);
+    });
+
+    expect(calls).toHaveLength(0);
+  });
 });

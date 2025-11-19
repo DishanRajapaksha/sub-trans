@@ -1,4 +1,4 @@
-export const SUPPORTED_TRANSLATION_PROVIDERS = ['openai', 'mistral'] as const;
+export const SUPPORTED_TRANSLATION_PROVIDERS = ['openai', 'mistral', 'demo'] as const;
 
 export type TranslationProvider = (typeof SUPPORTED_TRANSLATION_PROVIDERS)[number];
 
