@@ -9,7 +9,8 @@
     "dev": "vite build --watch --mode development",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,html}\"",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "package": "npm run build && zip -r extension.zip dist"
   },
   "keywords": [
     "browser-extension",

@@ -293,7 +293,7 @@ Components:
 
 ### 8.1 UI design
 
-- [ ] Create `options.html` with:
+- [x] Create `options.html` with:
   - Form fields for:
     - Provider selection (dropdown or text).
     - API base URL (if relevant).
@@ -304,10 +304,10 @@ Components:
 
 ### 8.2 Options logic
 
-- [ ] On page load:
+- [x] On page load:
   - Retrieve configuration from extension storage.
   - Populate form fields with current values.
-- [ ] On “Save”:
+- [x] On “Save”:
   - Validate required fields.
   - Write updated configuration to storage.
   - Show a short “Saved” confirmation message.
@@ -316,9 +316,9 @@ Components:
 
 ## 9. Permissions, Storage and Compatibility
 
-- [ ] Use the `browser` namespace where available, with a thin wrapper for Chrome’s `chrome` namespace if necessary, to keep one codebase.
-- [ ] Store configuration in `storage.sync` if supported; otherwise fall back to `storage.local`.
-- [ ] Ensure:
+- [x] Use the `browser` namespace where available, with a thin wrapper for Chrome’s `chrome` namespace if necessary, to keep one codebase.
+- [x] Store configuration in `storage.sync` if supported; otherwise fall back to `storage.local`.
+- [x] Ensure:
   - All network requests to Arte’s CDN domains are permitted by host permissions.
   - All requests to the translation provider are allowed by the extension’s permissions and by CORS rules.
 
@@ -363,15 +363,15 @@ Components:
 
 ## 11. Packaging Tasks
 
-- [ ] Ensure `dist/` contains all necessary files:
+- [x] Ensure `dist/` contains all necessary files:
   - Built background script
   - Built content script
   - VTT utilities
   - Translation adapter
   - Options page assets
   - `manifest.json`
-- [ ] Test loading:
+- [x] Test loading:
   - In Chrome: “Load unpacked” pointing at `dist/`.
   - In Firefox: “Load temporary add-on”.
-- [ ] Optionally:
+- [x] Optionally:
   - Add a build step that packages `dist/` as a `.zip` for store uploads.

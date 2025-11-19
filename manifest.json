@@ -7,15 +7,24 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.arte.tv/*",
-    "https://arte-cmafhls.akamaized.net/*"
+    "https://arte-cmafhls.akamaized.net/*",
+    "https://api.openai.com/*",
+    "https://api.mistral.ai/*",
+    "*://*/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.arte.tv/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.arte.tv/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
