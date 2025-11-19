@@ -1,11 +1,5 @@
 import { sendRuntimeMessage } from '../shared/browser';
-
-type TranslateVttMessage = {
-  type: 'TRANSLATE_VTT';
-  url: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-};
+import { TranslateVttMessage, TranslationResponse } from '../shared/messages';
 
 const VIDEO_LOOKUP_TIMEOUT = 10_000;
 const TRACK_LOOKUP_TIMEOUT = 10_000;
@@ -100,10 +94,10 @@ export const waitForFrenchTrack = (video: HTMLVideoElement): Promise<HTMLTrackEl
   });
 };
 
-export const requestTranslation = async (track: HTMLTrackElement): Promise<void> => {
+export const requestTranslation = async (track: HTMLTrackElement): Promise<string | null> => {
   if (!track.src) {
     log('French track does not expose a src attribute.');
-    return;
+    return null;
   }
 
   const message: TranslateVttMessage = {
@@ -114,23 +108,61 @@ export const requestTranslation = async (track: HTMLTrackElement): Promise<void>
   };
 
   try {
-    await sendRuntimeMessage<TranslateVttMessage, unknown>(message);
     log('Sent translation request for', track.src);
+    const response = await sendRuntimeMessage<TranslateVttMessage, TranslationResponse>(message);
+    if (response?.status === 'translated') {
+      log('Received translated subtitles for', track.src);
+      return response.translatedVtt;
+    }
+
+    log('Translation request returned an error', response?.message ?? 'Unknown response');
+    return null;
   } catch (error) {
     log('Failed to send translation request', error);
+    return null;
   }
+};
+
+type InjectTranslatedTrackDependencies = {
+  createObjectURLFn?: (blob: Blob) => string;
+};
+
+export const injectTranslatedTrack = (
+  video: HTMLVideoElement,
+  sourceTrack: HTMLTrackElement,
+  translatedVtt: string,
+  deps: InjectTranslatedTrackDependencies = {}
+): HTMLTrackElement => {
+  const createObjectURLFn = deps.createObjectURLFn ?? URL.createObjectURL.bind(URL);
+  const translatedBlob = new Blob([translatedVtt], { type: 'text/vtt' });
+  const translatedSrc = createObjectURLFn(translatedBlob);
+
+  const translatedTrack = sourceTrack.cloneNode(true) as HTMLTrackElement;
+  translatedTrack.src = translatedSrc;
+  translatedTrack.srclang = 'en';
+  translatedTrack.label = 'English (translated)';
+  translatedTrack.default = true;
+  video.append(translatedTrack);
+  log('Injected translated subtitle track.');
+  return translatedTrack;
 };
 
 type BootstrapDependencies = {
   waitForVideoFn?: () => Promise<HTMLVideoElement | null>;
   waitForFrenchTrackFn?: (video: HTMLVideoElement) => Promise<HTMLTrackElement | null>;
-  requestTranslationFn?: (track: HTMLTrackElement) => Promise<void>;
+  requestTranslationFn?: (track: HTMLTrackElement) => Promise<string | null>;
+  injectTranslatedTrackFn?: (
+    video: HTMLVideoElement,
+    sourceTrack: HTMLTrackElement,
+    translatedVtt: string
+  ) => HTMLTrackElement;
 };
 
 export const bootstrap = async (deps: BootstrapDependencies = {}): Promise<void> => {
   const waitForVideoFn = deps.waitForVideoFn ?? waitForVideo;
   const waitForFrenchTrackFn = deps.waitForFrenchTrackFn ?? waitForFrenchTrack;
   const requestTranslationFn = deps.requestTranslationFn ?? requestTranslation;
+  const injectTranslatedTrackFn = deps.injectTranslatedTrackFn ?? injectTranslatedTrack;
 
   const video = await waitForVideoFn();
   if (!video) {
@@ -146,9 +178,17 @@ export const bootstrap = async (deps: BootstrapDependencies = {}): Promise<void>
   }
 
   log('French subtitle track found.');
-  requestTranslationFn(frenchTrack).catch((error) => {
+  try {
+    const translatedVtt = await requestTranslationFn(frenchTrack);
+    if (!translatedVtt) {
+      log('Unable to translate French subtitle track.');
+      return;
+    }
+
+    injectTranslatedTrackFn(video, frenchTrack, translatedVtt);
+  } catch (error) {
     log('Unhandled translation request error', error);
-  });
+  }
 };
 
 type VitestImportMeta = ImportMeta & { vitest?: boolean };
