@@ -116,6 +116,45 @@ describe('headless chromium translated track injection', () => {
     });
   }, 20_000);
 
+  it('does not inject a translated track when the background returns an error', async () => {
+    await withPage(async (page) => {
+      const frenchTrackVtt = encodeURIComponent('WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nSOUS-TITRE');
+      await page.setContent(`
+        <!doctype html>
+        <html>
+          <body>
+            <video controls>
+              <track kind="subtitles" srclang="fr" label="Français" src="data:text/vtt;charset=utf-8,${frenchTrackVtt}" default>
+            </video>
+          </body>
+        </html>
+      `);
+
+      await page.evaluate(() => {
+        (window as typeof window & { chrome?: ChromeShim }).chrome = {
+          runtime: {
+            lastError: undefined,
+            sendMessage: (_message: unknown, callback: (response: unknown) => void) => {
+              window.setTimeout(() => {
+                callback({ status: 'error', message: 'translation unavailable' });
+              }, 0);
+            }
+          }
+        } satisfies ChromeShim;
+      });
+
+      await page.addScriptTag({ type: 'module', content: bundledContentScript });
+
+      await page.waitForTimeout(200);
+
+      const englishTrackCount = await page.evaluate(() => {
+        return document.querySelectorAll('track[srclang="en"]').length;
+      });
+
+      expect(englishTrackCount).toBe(0);
+    });
+  }, 20_000);
+
   it('reuses an existing translated track without duplicating it', async () => {
     const translatedVtt = ['WEBVTT', '', '00:00:05.000 --> 00:00:06.000', 'UPDATED-TRANSLATION'].join('\n');
 
@@ -173,6 +212,51 @@ describe('headless chromium translated track injection', () => {
         id: 'pre-existing-english',
         translatedVttContent: translatedVtt
       });
+    });
+  }, 20_000);
+
+  it('skips translation when the detected French track has no src attribute', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <!doctype html>
+        <html>
+          <body>
+            <video controls>
+              <track id="missing-src" kind="subtitles" srclang="fr" label="Français" default>
+            </video>
+          </body>
+        </html>
+      `);
+
+      await page.evaluate(() => {
+        (window as typeof window & { chrome?: ChromeShim & { translationRequests?: number } }).chrome = {
+          translationRequests: 0,
+          runtime: {
+            lastError: undefined,
+            sendMessage: (_message: unknown, callback: (response: unknown) => void) => {
+              (window as typeof window & { chrome?: ChromeShim & { translationRequests?: number } }).chrome!.translationRequests! += 1;
+              window.setTimeout(() => {
+                callback({ status: 'translated', translatedVtt: 'WEBVTT' });
+              }, 0);
+            }
+          }
+        } satisfies ChromeShim & { translationRequests?: number };
+      });
+
+      await page.addScriptTag({ type: 'module', content: bundledContentScript });
+
+      await page.waitForTimeout(200);
+
+      const { englishTrackCount, translationRequests } = await page.evaluate(() => {
+        const chromeShim = (window as typeof window & { chrome?: ChromeShim & { translationRequests?: number } }).chrome;
+        return {
+          englishTrackCount: document.querySelectorAll('track[srclang="en"]').length,
+          translationRequests: chromeShim?.translationRequests ?? 0
+        };
+      });
+
+      expect(englishTrackCount).toBe(0);
+      expect(translationRequests).toBe(0);
     });
   }, 20_000);
 
@@ -263,6 +347,99 @@ describe('headless chromium translated track injection', () => {
       expect(englishTrackContents).toHaveLength(2);
       expect(englishTrackContents[0]).toContain('TRANSLATED-ONE');
       expect(englishTrackContents[1]).toContain('TRANSLATED-TWO');
+    });
+  }, 30_000);
+
+  it('keeps watching for new videos even after a translation failure', async () => {
+    const successfulTranslation = ['WEBVTT', '', '00:00:07.000 --> 00:00:08.000', 'RECOVERED-TRANSLATION'].join('\n');
+
+    await withPage(async (page) => {
+      const firstTrackVtt = encodeURIComponent('WEBVTT\n\n00:00:07.000 --> 00:00:08.000\nSOUS-TITRE-ERROR');
+      const secondTrackVtt = encodeURIComponent('WEBVTT\n\n00:00:09.000 --> 00:00:10.000\nSOUS-TITRE-SUCCESS');
+      await page.setContent(`
+        <!doctype html>
+        <html>
+          <body>
+            <video id="first-video" controls>
+              <track kind="subtitles" srclang="fr" label="Français" src="data:text/vtt;charset=utf-8,${firstTrackVtt}" default>
+            </video>
+          </body>
+        </html>
+      `);
+
+      await page.evaluate((translation) => {
+        let callCount = 0;
+        (window as typeof window & { chrome?: ChromeShim }).chrome = {
+          runtime: {
+            lastError: undefined,
+            sendMessage: (_message: unknown, callback: (response: unknown) => void) => {
+              if (callCount === 0) {
+                callCount += 1;
+                window.setTimeout(() => {
+                  (window as typeof window & { chrome?: ChromeShim }).chrome!.runtime.lastError = { message: 'Network failure' };
+                  callback(undefined);
+                  window.setTimeout(() => {
+                    (window as typeof window & { chrome?: ChromeShim }).chrome!.runtime.lastError = undefined;
+                  }, 0);
+                }, 0);
+                return;
+              }
+
+              callCount += 1;
+              window.setTimeout(() => {
+                callback({ status: 'translated', translatedVtt: translation });
+              }, 0);
+            }
+          }
+        } satisfies ChromeShim;
+      }, successfulTranslation);
+
+      await page.addScriptTag({ type: 'module', content: bundledContentScript });
+
+      await page.waitForTimeout(300);
+
+      await page.evaluate((laterVtt) => {
+        const insertLaterVideo = () => {
+          const video = document.createElement('video');
+          video.id = 'second-video';
+          const track = document.createElement('track');
+          track.kind = 'subtitles';
+          track.srclang = 'fr';
+          track.label = 'Français';
+          track.src = `data:text/vtt;charset=utf-8,${laterVtt}`;
+          video.append(track);
+          document.body.append(video);
+        };
+
+        window.setTimeout(insertLaterVideo, 50);
+      }, secondTrackVtt);
+
+      await page.waitForFunction(() => {
+        const secondVideo = document.getElementById('second-video') as HTMLVideoElement | null;
+        if (!secondVideo) {
+          return false;
+        }
+        const translatedTrack = secondVideo.querySelector('track[srclang="en"]');
+        return Boolean(translatedTrack);
+      });
+
+      const { firstVideoEnglishTracks, secondVideoVtt } = await page.evaluate(async () => {
+        const firstVideo = document.getElementById('first-video') as HTMLVideoElement | null;
+        const secondVideo = document.getElementById('second-video') as HTMLVideoElement | null;
+        const firstVideoEnglishTracks = firstVideo ? firstVideo.querySelectorAll('track[srclang="en"]').length : 0;
+        let secondVideoVtt = '';
+        if (secondVideo) {
+          const track = secondVideo.querySelector('track[srclang="en"]') as HTMLTrackElement | null;
+          if (track) {
+            const response = await fetch(track.src);
+            secondVideoVtt = await response.text();
+          }
+        }
+        return { firstVideoEnglishTracks, secondVideoVtt };
+      });
+
+      expect(firstVideoEnglishTracks).toBe(0);
+      expect(secondVideoVtt).toContain('RECOVERED-TRANSLATION');
     });
   }, 30_000);
 });

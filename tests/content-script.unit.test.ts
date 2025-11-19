@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import * as contentModule from './index';
-import { sendRuntimeMessage } from '../shared/browser';
+import * as contentModule from '../src/content/index';
+import { sendRuntimeMessage } from '../src/shared/browser';
 
-vi.mock('../shared/browser', () => {
+vi.mock('../src/shared/browser', () => {
   return {
     sendRuntimeMessage: vi.fn()
   };
@@ -250,6 +250,24 @@ describe('content script bootstrap utilities', () => {
       );
     });
 
+    it('falls back to an unknown response message when translation responses omit details', async () => {
+      const consoleSpy = getConsoleSpy();
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.src = arteSubtitleUrl;
+
+      sendRuntimeMessageMock.mockResolvedValue({ status: 'error' });
+
+      await expect(contentModule.requestTranslation(track)).resolves.toBeNull();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[Arte Subtitle Translator]',
+        'Translation request returned an error',
+        'Unknown response'
+      );
+    });
+
     it('logs failures when runtime messaging rejects', async () => {
       const consoleSpy = getConsoleSpy();
       const track = document.createElement('track');
@@ -315,6 +333,76 @@ describe('content script bootstrap utilities', () => {
       expect(video.querySelectorAll('track')).toHaveLength(2);
       expect(translatedTrack.src).toBe('blob:updated');
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Updated translated subtitle track.');
+    });
+
+    it('uses the default URL.createObjectURL implementation when no dependency is provided', () => {
+      const urlWithObjectURL = URL as typeof URL & { createObjectURL: (blob: Blob) => string };
+      const original = urlWithObjectURL.createObjectURL;
+      const fallbackCreateObjectURL = vi.fn().mockReturnValue('blob:default');
+      urlWithObjectURL.createObjectURL = fallbackCreateObjectURL;
+
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      video.append(frenchTrack);
+
+      const translatedTrack = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT DEFAULT');
+
+      expect(fallbackCreateObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      expect(translatedTrack.src).toBe('blob:default');
+
+      if (original) {
+        urlWithObjectURL.createObjectURL = original;
+      } else {
+        delete (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+      }
+    });
+
+    it('ignores placeholder translated tracks that lack srclang or labels', () => {
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      video.append(frenchTrack);
+
+      const placeholderTrack = document.createElement('track');
+      placeholderTrack.kind = 'subtitles';
+      placeholderTrack.label = '';
+      placeholderTrack.srclang = '';
+
+      let srclangValue: string | undefined;
+      Object.defineProperty(placeholderTrack, 'srclang', {
+        configurable: true,
+        get: () => srclangValue as string | undefined,
+        set: (value: string) => {
+          srclangValue = value;
+        }
+      });
+
+      let labelValue: string | undefined;
+      Object.defineProperty(placeholderTrack, 'label', {
+        configurable: true,
+        get: () => labelValue,
+        set: (value: string) => {
+          labelValue = value;
+        }
+      });
+
+      video.append(placeholderTrack);
+
+      const createObjectURLFn = vi.fn().mockReturnValue('blob:fallback');
+
+      const translatedTrack = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT FALLBACK', {
+        createObjectURLFn
+      });
+
+      expect(translatedTrack).not.toBe(placeholderTrack);
+      expect(video.querySelectorAll('track')).toHaveLength(3);
     });
   });
 

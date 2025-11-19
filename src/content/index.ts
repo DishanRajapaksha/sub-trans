@@ -185,9 +185,6 @@ export const bootstrap = async (deps: BootstrapDependencies = {}): Promise<void>
   const processedVideos = new WeakSet<HTMLVideoElement>();
 
   const processVideo = async (video: HTMLVideoElement): Promise<void> => {
-    if (processedVideos.has(video)) {
-      return;
-    }
     processedVideos.add(video);
 
     log('Video element detected. Searching for subtitle tracks...');
