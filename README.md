@@ -31,6 +31,22 @@ npm run lint
 npm run format
 ```
 
+### Testing
+
+The Vitest suite launches real Chromium instances via Playwright to exercise the
+background, content, and shared modules. Install the browsers (and the Linux
+runtime dependencies) once before running the tests:
+
+```bash
+npx playwright install --with-deps
+```
+
+Then run the coverage suite:
+
+```bash
+npm test
+```
+
 ## Project layout
 
 - `src/background` – background service worker entry point.
