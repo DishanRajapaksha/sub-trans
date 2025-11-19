@@ -328,34 +328,34 @@ Components:
 
 ### 10.1 Manual testing on Arte.tv
 
-- [x] Install the extension as an unpacked/temporary add-on.
-- [x] Open an Arte.tv video known to have French subtitles.
-- [x] Check the subtitle menu before the extension acts:
+- [ ] Install the extension as an unpacked/temporary add-on.
+- [ ] Open an Arte.tv video known to have French subtitles.
+- [ ] Check the subtitle menu before the extension acts:
   - Note existing audio and subtitle options.
-- [x] With the extension enabled:
+- [ ] With the extension enabled:
   - Wait briefly for the content script to run.
   - Reopen the subtitle menu.
   - Verify that a new subtitle option appears (e.g. “English (translated)”).
   - Select this option and confirm that subtitles differ from the original French track in a clear way (for early testing, a simple text marker is acceptable).
-- [x] Confirm:
+- [ ] Confirm:
   - No visible impact on video playback if translation fails.
   - No console errors in normal scenarios.
 
 ### 10.2 Edge and failure cases
 
-- [x] Test a video with no French subtitles:
+- [ ] Test a video with no French subtitles:
   - Confirm that the extension does not inject anything and fails quietly.
-- [x] Test when:
+- [ ] Test when:
   - API key is missing.
   - Translation provider is unreachable.
   - Provider returns an error.
-- [x] Verify:
+- [ ] Verify:
   - The content script logs an understandable error.
   - Arte’s player behaves normally.
 
 ### 10.3 Episode / navigation behaviour
 
-- [x] On Arte, switch to another episode or video without refreshing the page:
+- [ ] On Arte, switch to another episode or video without refreshing the page:
   - Confirm that the extension detects the new `<video>` and injects subtitles again.
   - Confirm that it does not create duplicate English tracks for the same video.
 
