@@ -99,17 +99,17 @@ Components:
 
 ### 4.1 Detect the video element
 
-- [ ] Implement logic to find the main `<video>` element on the page:
+- [x] Implement logic to find the main `<video>` element on the page:
   - First attempt: direct `querySelector`.
   - Fallback: `MutationObserver` on `document.documentElement` to detect dynamically inserted `<video>` elements.
   - Apply a timeout to avoid watching forever if no video appears.
 
 ### 4.2 Find the French subtitle track
 
-- [ ] Once the `<video>` is found, search its child `<track>` elements where:
+- [x] Once the `<video>` is found, search its child `<track>` elements where:
   - `kind` is `"subtitles"` or `"captions"`.
   - `srclang` equals `"fr"` **or** the `label` text contains `"fr"` (case insensitive).
-- [ ] If no French track is found within a timeout, log and stop further processing.
+- [x] If no French track is found within a timeout, log and stop further processing.
 
 ### 4.3 Request translation from background
 

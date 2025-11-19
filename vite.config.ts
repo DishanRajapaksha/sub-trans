@@ -30,5 +30,17 @@ export default defineConfig({
         }
       ]
     })
-  ]
+  ],
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      include: ['src/content/index.ts'],
+      lines: 100,
+      functions: 100,
+      branches: 100,
+      statements: 100
+    }
+  }
 });
