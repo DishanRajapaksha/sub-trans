@@ -202,22 +202,26 @@ describe('content script bootstrap utilities', () => {
       track.kind = 'subtitles';
       track.srclang = 'fr';
 
-      await contentModule.requestTranslation(track);
+      await expect(contentModule.requestTranslation(track)).resolves.toBeNull();
 
       expect(sendRuntimeMessageMock).not.toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'French track does not expose a src attribute.');
     });
 
-    it('sends a translation message when src exists', async () => {
+    it('returns translated text when runtime messaging succeeds', async () => {
       const consoleSpy = getConsoleSpy();
       const track = document.createElement('track');
       track.kind = 'subtitles';
       track.srclang = 'fr';
       track.src = arteSubtitleUrl;
 
-      sendRuntimeMessageMock.mockResolvedValue(undefined);
+      const translatedVtt = 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nTRANSLATED';
+      sendRuntimeMessageMock.mockResolvedValue({
+        status: 'translated',
+        translatedVtt
+      });
 
-      await contentModule.requestTranslation(track);
+      await expect(contentModule.requestTranslation(track)).resolves.toBe(translatedVtt);
 
       expect(sendRuntimeMessageMock).toHaveBeenCalledWith({
         type: 'TRANSLATE_VTT',
@@ -225,7 +229,25 @@ describe('content script bootstrap utilities', () => {
         sourceLanguage: 'fr',
         targetLanguage: 'en'
       });
-      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Sent translation request for', track.src);
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Received translated subtitles for', track.src);
+    });
+
+    it('logs failures returned by runtime messaging responses', async () => {
+      const consoleSpy = getConsoleSpy();
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.src = arteSubtitleUrl;
+
+      sendRuntimeMessageMock.mockResolvedValue({ status: 'error', message: 'Not today' });
+
+      await expect(contentModule.requestTranslation(track)).resolves.toBeNull();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[Arte Subtitle Translator]',
+        'Translation request returned an error',
+        'Not today'
+      );
     });
 
     it('logs failures when runtime messaging rejects', async () => {
@@ -237,9 +259,35 @@ describe('content script bootstrap utilities', () => {
 
       sendRuntimeMessageMock.mockRejectedValue(new Error('nope'));
 
-      await contentModule.requestTranslation(track);
+      await expect(contentModule.requestTranslation(track)).resolves.toBeNull();
 
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Failed to send translation request', expect.any(Error));
+    });
+  });
+
+  describe('injectTranslatedTrack', () => {
+    it('clones the French track and injects an English translation', () => {
+      const consoleSpy = getConsoleSpy();
+      const video = document.createElement('video');
+      const frenchTrack = document.createElement('track');
+      frenchTrack.kind = 'subtitles';
+      frenchTrack.label = 'Français';
+      frenchTrack.srclang = 'fr';
+      frenchTrack.src = arteSubtitleUrl;
+      video.append(frenchTrack);
+
+      const createObjectURLFn = vi.fn().mockReturnValue('blob:translated');
+      const translatedTrack = contentModule.injectTranslatedTrack(video, frenchTrack, 'WEBVTT', {
+        createObjectURLFn
+      });
+
+      expect(createObjectURLFn).toHaveBeenCalledWith(expect.any(Blob));
+      expect(video.querySelectorAll('track')).toHaveLength(2);
+      expect(translatedTrack.label).toBe('English (translated)');
+      expect(translatedTrack.srclang).toBe('en');
+      expect(translatedTrack.default).toBe(true);
+      expect(translatedTrack.src).toBe('blob:translated');
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Injected translated subtitle track.');
     });
   });
 
@@ -275,7 +323,31 @@ describe('content script bootstrap utilities', () => {
       track.src = 'https://example.com/ready.vtt';
       const waitForVideoFn = vi.fn().mockResolvedValue(video);
       const waitForFrenchTrackFn = vi.fn().mockResolvedValue(track);
-      const requestSpy = vi.fn().mockResolvedValue(undefined);
+      const requestSpy = vi.fn().mockResolvedValue('WEBVTT');
+      const injectSpy = vi.fn();
+
+      await contentModule.bootstrap({
+        waitForVideoFn,
+        waitForFrenchTrackFn,
+        requestTranslationFn: requestSpy,
+        injectTranslatedTrackFn: injectSpy
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'French subtitle track found.');
+      expect(requestSpy).toHaveBeenCalledWith(track);
+      expect(injectSpy).toHaveBeenCalledWith(video, track, 'WEBVTT');
+    });
+
+    it('logs when translation fails to produce text', async () => {
+      const consoleSpy = getConsoleSpy();
+      const video = document.createElement('video');
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.src = 'https://example.com/failure.vtt';
+      const waitForVideoFn = vi.fn().mockResolvedValue(video);
+      const waitForFrenchTrackFn = vi.fn().mockResolvedValue(track);
+      const requestSpy = vi.fn().mockResolvedValue(null);
 
       await contentModule.bootstrap({
         waitForVideoFn,
@@ -283,8 +355,7 @@ describe('content script bootstrap utilities', () => {
         requestTranslationFn: requestSpy
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'French subtitle track found.');
-      expect(requestSpy).toHaveBeenCalledWith(track);
+      expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Unable to translate French subtitle track.');
     });
 
     it('logs when a translation request rejects', async () => {
@@ -304,7 +375,6 @@ describe('content script bootstrap utilities', () => {
         requestTranslationFn: requestSpy
       });
 
-      await Promise.resolve();
       expect(consoleSpy).toHaveBeenCalledWith('[Arte Subtitle Translator]', 'Unhandled translation request error', expect.any(Error));
     });
   });
